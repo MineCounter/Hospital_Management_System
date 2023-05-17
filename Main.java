@@ -10,6 +10,7 @@ import java.awt.event.*;
 import java.sql.*;
 //import java.util
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 public class Main {
 
     //create a global variable for the current user and the authorization level
@@ -30,8 +31,13 @@ public class Main {
         }
 
         //call loginScreen method
-        loginScreen();
+        if (loginScreen()) {
+            JOptionPane.showMessageDialog(null, "Welcome " + getCurrentUser() + "!\nAuthorization Level: " + getAuthorizationLevel());
+            //print system initialization message
+            System.out.println("System Initialized!");
+        }
 
+        
 
     }
 
@@ -39,17 +45,14 @@ public class Main {
     public static String getCurrentUser() {
         return currentUser;
     }
-
     //setter for currentUser
     public static void setCurrentUser(String currentUser) {
         Main.currentUser = currentUser;
     }
-
     //getter for authorizationLevel
     public static int getAuthorizationLevel() {
         return authorizationLevel;
     }
-
     //setter for authorizationLevel
     public static void setAuthorizationLevel(int authorizationLevel) {
         Main.authorizationLevel = authorizationLevel;
@@ -109,7 +112,6 @@ public class Main {
     public static boolean loginScreen(){
 
         final boolean[] loginStatus = {false};
-
         // create an instance of JFrame
         JFrame frame = new JFrame("Login Screen");
         // set the size of the frame to fit a login screen
@@ -159,6 +161,8 @@ public class Main {
         frame.setVisible(true);
         //set focus to the login text field
         loginText.requestFocus();
+        // Create a CountDownLatch with a count of 1
+        CountDownLatch latch = new CountDownLatch(1);
 
         //after login button is clicked check if login and password match a record in the database
         loginButton.addActionListener(new ActionListener() {
@@ -168,6 +172,9 @@ public class Main {
                 String login = loginText.getText();
                 //set password from text field
                 String password = String.valueOf(passwordText.getPassword());
+
+               
+
                 //check if login and password match a record in the database
                 if(checkLogin(login, password)){
                     //if login and password match a record in the database set loginStatus to true
@@ -175,22 +182,29 @@ public class Main {
                     //print current user and authorization level
                     System.out.println("Current User: " + getCurrentUser());
                     System.out.println("Authorization Level: " + getAuthorizationLevel());
-                    //Display welcome message with current user and authorization level
-                    JOptionPane.showMessageDialog(null, "Welcome " + getCurrentUser() + "!\nAuthorization Level: " + getAuthorizationLevel());
-                    
-                    //close the login screen
-                    frame.setVisible(false);
-                    frame.dispose();
-                    //print login successful message
-                    System.out.println("Login Successful");
+                    // Count down the latch to indicate that the login process has completed
+                    latch.countDown();
+
                 }
                 else{
                     //if login and password do not match a record in the database display error message
                     JOptionPane.showMessageDialog(null, "Invalid Login or Password");
-                    //call loginScreen method again
+                    // Count down the latch to indicate that the login process has completed
+                    latch.countDown();
                 }
             }
         });
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        // Close the login screen
+        frame.setVisible(false);
+
+        // Return the login status
         return loginStatus[0];
     }
 
@@ -213,6 +227,12 @@ public class Main {
                 //set the current user to the username
                 setCurrentUser(rs.getString("Username"));
                 //if the result set is not empty return true
+                //close the statement
+                stmt.close();
+                //close the result set
+                rs.close();
+                //close the connection
+                conn.close();
                 return true;
             }
             else{
